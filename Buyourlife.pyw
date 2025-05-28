@@ -207,8 +207,7 @@ class Bag(pygame.sprite.Sprite):
         if self.rect.x > GAME_WIDTH - self.rect.width:
             self.rect.x = GAME_WIDTH - self.rect.width
 
-# Classe principale du jeu
-# Classe principale du jeu
+
 class BuyourlifeSimulator:
     def __init__(self):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -221,60 +220,56 @@ class BuyourlifeSimulator:
         self.running = True
         self.custom_background = None
         self.default_background = BLACK
+        self.fullscreen = False
         
-        # Charger les images des pièces et billets
         load_money_images()
         
-        # Surface de jeu (séparée de l'interface)
         self.game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
         
-        # État du jeu
-        self.state = "menu"  # menu, playing, pause, game_over, skins
+        self.state = "menu"
         self.current_level = 1
         self.money_collected = 0
         self.time_left = 60
         self.countdown = 0
         self.is_paused = False
+        self.countdown_start_time = 0
         
-        # Groupes de sprites
         self.all_sprites = pygame.sprite.Group()
         self.money_sprites = pygame.sprite.Group()
         
-        # Joueur
         self.bag = None
         self.selected_skin = "default"
         
-        # Fonts
         self.title_font = pygame.font.Font(None, 72)
         self.menu_font = pygame.font.Font(None, 48)
         self.ui_font = pygame.font.Font(None, 36)
         
-        # Timer pour la génération d'argent
         self.last_money_spawn = 0
-        self.money_spawn_delay = 500  # millisecondes
+        self.money_spawn_delay = 500
         
-        # System for coin spawning
         self.coins_remaining = {}
         self.level_start_time = 0
         self.pause_start_time = 0
         
-        # Menu variables
-        self.menu_items = ["Mode Facile", "Mode Normal", "Mode Difficile", "Skins", "Fond", "Quitter"]
+        self.menu_items = ["Mode Facile", "Mode Normal", "Mode Difficile", "Skins", "Fond", "Plein écran", "Quitter"]
         self.selected_menu_item = 0
         
-        # Setup des pièces pour le niveau
         self.setup_money_for_level()
 
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
     def load_custom_background(self):
-        """Charge un fond personnalisé depuis un fichier"""
         import tkinter as tk
         from tkinter import filedialog
     
-        # Créer une fenêtre temporaire pour le dialog
         root = tk.Tk()
-        root.withdraw()  # Cache la fenêtre principale
+        root.withdraw()
         
-        # Ouvre le dialog de sélection de fichier
         file_path = filedialog.askopenfilename(
             title="Sélectionner une image de fond",
             filetypes=[
@@ -285,11 +280,10 @@ class BuyourlifeSimulator:
             ]
         )
     
-        root.destroy()  # Ferme la fenêtre temporaire
+        root.destroy()
     
         if file_path:
             try:
-                # Charge et redimensionne l'image
                 background_image = pygame.image.load(file_path)
                 self.custom_background = pygame.transform.scale(background_image, (GAME_WIDTH, GAME_HEIGHT))
                 print(f"Fond personnalisé chargé: {file_path}")
@@ -298,17 +292,14 @@ class BuyourlifeSimulator:
                 self.custom_background = None
 
     def reset_custom_background(self):
-        """Remet le fond par défaut"""
         self.custom_background = None
     
     def setup_money_for_level(self):
-        """Configure l'argent à faire tomber pour le niveau actuel"""
         self.coins_remaining = {}
         for money_type, config in MONEY_CONFIG.items():
             self.coins_remaining[money_type] = config["count"]
     
     def spawn_money(self):
-        """Fait apparaître de l'argent aléatoirement"""
         current_time = pygame.time.get_ticks()
 
         if current_time - self.last_money_spawn > self.money_spawn_delay:
@@ -326,7 +317,6 @@ class BuyourlifeSimulator:
                 self.last_money_spawn = current_time
     
     def spawn_multiple_money(self, count=3):
-        """Fait apparaître plusieurs pièces/billets à la fois"""
         for _ in range(count):
             available_types = [money_type for money_type, count in self.coins_remaining.items() if count > 0]
             if available_types:
@@ -340,21 +330,20 @@ class BuyourlifeSimulator:
                 self.coins_remaining[money_type] -= 1
         
     def draw_menu(self):
-        """Affiche le menu principal"""
+        current_screen_width = self.screen.get_width()
+        current_screen_height = self.screen.get_height()
+        
         self.screen.fill(BLACK)
         
-        # Titre
         title = self.title_font.render("BUYOURLIFE SIMULATOR", True, WHITE)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        title_rect = title.get_rect(center=(current_screen_width // 2, 100))
         self.screen.blit(title, title_rect)
         
-        # Options du menu avec sélection par clavier et souris
         mouse_pos = pygame.mouse.get_pos()
         
         for i, item in enumerate(self.menu_items):
-            rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 250 + i * 60, 300, 50)
+            rect = pygame.Rect(current_screen_width // 2 - 150, 250 + i * 60, 300, 50)
             
-            # Choix de la couleur selon la sélection ou le survol
             if i == self.selected_menu_item or rect.collidepoint(mouse_pos):
                 pygame.draw.rect(self.screen, GREEN, rect)
                 text_color = BLACK
@@ -362,19 +351,26 @@ class BuyourlifeSimulator:
                 pygame.draw.rect(self.screen, WHITE, rect, 2)
                 text_color = WHITE
             
-            text = self.menu_font.render(item, True, text_color)
+            if item == "Plein écran":
+                icon = "🔳" if not self.fullscreen else "⛶"
+                display_text = f"{icon} {item}"
+            else:
+                display_text = item
+                
+            text = self.menu_font.render(display_text, True, text_color)
             text_rect = text.get_rect(center=rect.center)
             self.screen.blit(text, text_rect)
     
     def draw_skin_menu(self):
-        """Affiche le menu de sélection des skins"""
+        current_screen_width = self.screen.get_width()
+        current_screen_height = self.screen.get_height()
+        
         self.screen.fill(BLACK)
         
         title = self.title_font.render("Sélection du Skin", True, WHITE)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        title_rect = title.get_rect(center=(current_screen_width // 2, 100))
         self.screen.blit(title, title_rect)
         
-        # Affichage des skins
         skin_index = 0
         mouse_pos = pygame.mouse.get_pos()
         
@@ -382,13 +378,12 @@ class BuyourlifeSimulator:
             col = skin_index % 2
             row = skin_index // 2
             
-            x = SCREEN_WIDTH // 4 + col * SCREEN_WIDTH // 2
+            x = current_screen_width // 4 + col * current_screen_width // 2
             y = 200 + row * 120
             
             rect = pygame.Rect(x - 75, y - 50, 150, 100)
             pygame.draw.rect(self.screen, skin_color, rect)
             
-            # Indique le skin sélectionné
             if skin_name == self.selected_skin:
                 pygame.draw.rect(self.screen, WHITE, rect, 3)
             elif rect.collidepoint(mouse_pos):
@@ -400,8 +395,7 @@ class BuyourlifeSimulator:
             
             skin_index += 1
         
-        # Bouton retour
-        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 500, 200, 50)
+        back_rect = pygame.Rect(current_screen_width // 2 - 100, 500, 200, 50)
         
         if back_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, RED, back_rect)
@@ -415,57 +409,54 @@ class BuyourlifeSimulator:
         self.screen.blit(back_text, back_text_rect)
     
     def draw_game(self):
-        """Affiche l'écran de jeu avec l'interface"""
+        current_screen_width = self.screen.get_width()
+        current_screen_height = self.screen.get_height()
+        
         self.screen.fill(BLACK)
         
-        # Utilise le fond personnalisé ou le fond par défaut
         if self.custom_background:
             self.game_surface.blit(self.custom_background, (0, 0))
         else:
             self.game_surface.fill(self.default_background)
         
-        # Dessine les sprites sur la surface de jeu
         self.all_sprites.draw(self.game_surface)
         
-        # Affiche la surface de jeu
-        game_x = (SCREEN_WIDTH - GAME_WIDTH) // 2
-        game_y = 0
+        game_x = (current_screen_width - GAME_WIDTH) // 2
+        game_y = max(0, (current_screen_height - GAME_HEIGHT) // 2)
         self.screen.blit(self.game_surface, (game_x, game_y))
         
-        # Interface utilisateur
-        # Niveau
         level_text = self.ui_font.render(f"Niveau: {self.current_level}", True, WHITE)
         self.screen.blit(level_text, (20, 20))
     
-        # Argent collecté / Objectif
         money_text = self.ui_font.render(f"€{self.money_collected:.2f} / €{LEVEL_GOALS[self.current_level]}", True, GREEN)
         self.screen.blit(money_text, (20, 60))
     
-        # Temps restant
         if self.countdown > 0:
-            time_text = self.ui_font.render(f"{int(self.countdown)}", True, RED)
-            time_text_rect = time_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            countdown_number = int(self.countdown) + 1
+            time_text = self.title_font.render(f"{countdown_number}", True, RED)
+            time_text_rect = time_text.get_rect(center=(current_screen_width // 2, current_screen_height // 2))
             self.screen.blit(time_text, time_text_rect)
         else:
             time_text = self.ui_font.render(f"Temps: {int(self.time_left)}s", True, WHITE)
-            self.screen.blit(time_text, (SCREEN_WIDTH - 200, 20))
+            self.screen.blit(time_text, (current_screen_width - 200, 20))
         
-        # Message de pause
         if self.is_paused:
-            pause_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            pause_overlay = pygame.Surface((current_screen_width, current_screen_height), pygame.SRCALPHA)
             pause_overlay.fill((0, 0, 0, 128))
             self.screen.blit(pause_overlay, (0, 0))
         
             pause_text = self.title_font.render("PAUSE", True, YELLOW)
-            pause_rect = pause_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            pause_rect = pause_text.get_rect(center=(current_screen_width // 2, current_screen_height // 2))
             self.screen.blit(pause_text, pause_rect)
         
             continue_text = self.menu_font.render("Appuyez sur ÉCHAP pour continuer", True, WHITE)
-            continue_rect = continue_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80))
+            continue_rect = continue_text.get_rect(center=(current_screen_width // 2, current_screen_height // 2 + 80))
             self.screen.blit(continue_text, continue_rect)
     
     def draw_game_over(self):
-        """Affiche l'écran de fin de partie"""
+        current_screen_width = self.screen.get_width()
+        current_screen_height = self.screen.get_height()
+        
         self.screen.fill(BLACK)
         
         if self.current_level > 5:
@@ -474,21 +465,20 @@ class BuyourlifeSimulator:
         else:
             title = self.title_font.render("GAME OVER", True, RED)
             if self.money_collected >= LEVEL_GOALS[self.current_level]:
-                message = f"Niveau {self.current_level} terminé avec succès!"
+                message = f"Vous n'avez pas atteint l'objectif du niveau"
             else:
                 message = f"Vous n'avez pas atteint l'objectif du niveau"
         
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 200))
+        title_rect = title.get_rect(center=(current_screen_width // 2, 200))
         self.screen.blit(title, title_rect)
         
         message_text = self.menu_font.render(message, True, WHITE)
-        message_rect = message_text.get_rect(center=(SCREEN_WIDTH // 2, 300))
+        message_rect = message_text.get_rect(center=(current_screen_width // 2, 300))
         self.screen.blit(message_text, message_rect)
         
         mouse_pos = pygame.mouse.get_pos()
         
-        # Bouton rejouer
-        replay_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 400, 300, 60)
+        replay_rect = pygame.Rect(current_screen_width // 2 - 150, 400, 300, 60)
         if replay_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, GREEN, replay_rect)
             replay_color = BLACK
@@ -500,8 +490,7 @@ class BuyourlifeSimulator:
         replay_text_rect = replay_text.get_rect(center=replay_rect.center)
         self.screen.blit(replay_text, replay_text_rect)
         
-        # Bouton menu
-        menu_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 480, 300, 60)
+        menu_rect = pygame.Rect(current_screen_width // 2 - 150, 480, 300, 60)
         if menu_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, BLUE, menu_rect)
             menu_color = WHITE
@@ -514,35 +503,39 @@ class BuyourlifeSimulator:
         self.screen.blit(menu_text, menu_text_rect)
     
     def handle_menu_click(self, pos):
-        """Gère les clics dans le menu principal"""
+        current_screen_width = self.screen.get_width()
+        
         for i, item in enumerate(self.menu_items):
-            rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 250 + i * 60, 300, 50)
+            rect = pygame.Rect(current_screen_width // 2 - 150, 250 + i * 60, 300, 50)
             if rect.collidepoint(pos):
-                if i == 0:  # Mode facile
+                if i == 0:
                     self.start_game("easy")
-                elif i == 1:  # Mode Normal
+                elif i == 1:
                     self.start_game("normal")
-                elif i == 2:  # Mode Difficile
+                elif i == 2:
                     self.start_game("hard")
-                elif i == 3:  # Skins
+                elif i == 3:
                     self.state = "skins"
-                elif i == 4:  # Fond
+                elif i == 4:
                     self.state = "background"
-                elif i == 5:  # Quitter
+                elif i == 5:
+                    self.toggle_fullscreen()
+                elif i == 6:
                     self.running = False
 
     def draw_background_menu(self):
-        """Affiche le menu de sélection du fond"""
+        current_screen_width = self.screen.get_width()
+        current_screen_height = self.screen.get_height()
+        
         self.screen.fill(BLACK)
         
         title = self.title_font.render("Personnaliser le Fond", True, WHITE)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        title_rect = title.get_rect(center=(current_screen_width // 2, 100))
         self.screen.blit(title, title_rect)
         
         mouse_pos = pygame.mouse.get_pos()
         
-        # Bouton charger fond
-        load_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 200, 300, 60)
+        load_rect = pygame.Rect(current_screen_width // 2 - 150, 200, 300, 60)
         if load_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, GREEN, load_rect)
             load_color = BLACK
@@ -554,8 +547,7 @@ class BuyourlifeSimulator:
         load_text_rect = load_text.get_rect(center=load_rect.center)
         self.screen.blit(load_text, load_text_rect)
     
-        # Bouton reset fond
-        reset_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 280, 300, 60)
+        reset_rect = pygame.Rect(current_screen_width // 2 - 150, 280, 300, 60)
         if reset_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, BLUE, reset_rect)
             reset_color = WHITE
@@ -567,8 +559,7 @@ class BuyourlifeSimulator:
         reset_text_rect = reset_text.get_rect(center=reset_rect.center)
         self.screen.blit(reset_text, reset_text_rect)
     
-        # Aperçu du fond actuel
-        preview_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 360, 200, 120)
+        preview_rect = pygame.Rect(current_screen_width // 2 - 100, 360, 200, 120)
         if self.custom_background:
             preview_bg = pygame.transform.scale(self.custom_background, (200, 120))
             self.screen.blit(preview_bg, preview_rect)
@@ -577,11 +568,10 @@ class BuyourlifeSimulator:
         pygame.draw.rect(self.screen, WHITE, preview_rect, 2)
     
         preview_label = self.ui_font.render("Aperçu", True, WHITE)
-        preview_label_rect = preview_label.get_rect(center=(SCREEN_WIDTH // 2, 340))
+        preview_label_rect = preview_label.get_rect(center=(current_screen_width // 2, 340))
         self.screen.blit(preview_label, preview_label_rect)
     
-        # Bouton retour
-        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 500, 200, 50)
+        back_rect = pygame.Rect(current_screen_width // 2 - 100, 500, 200, 50)
         if back_rect.collidepoint(mouse_pos):
             pygame.draw.rect(self.screen, RED, back_rect)
             back_color = WHITE
@@ -594,33 +584,31 @@ class BuyourlifeSimulator:
         self.screen.blit(back_text, back_text_rect)
 
     def handle_background_click(self, pos):
-        """Gère les clics dans le menu de fond"""
-        # Bouton charger
-        load_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 200, 300, 60)
+        current_screen_width = self.screen.get_width()
+        
+        load_rect = pygame.Rect(current_screen_width // 2 - 150, 200, 300, 60)
         if load_rect.collidepoint(pos):
             self.load_custom_background()
             return
     
-        # Bouton reset
-        reset_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 280, 300, 60)
+        reset_rect = pygame.Rect(current_screen_width // 2 - 150, 280, 300, 60)
         if reset_rect.collidepoint(pos):
             self.reset_custom_background()
             return
     
-        # Bouton retour
-        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 500, 200, 50)
+        back_rect = pygame.Rect(current_screen_width // 2 - 100, 500, 200, 50)
         if back_rect.collidepoint(pos):
             self.state = "menu"
     
     def handle_skin_click(self, pos):
-        """Gère les clics dans le menu des skins"""
-        # Sélection des skins
+        current_screen_width = self.screen.get_width()
+        
         skin_index = 0
         for skin_name in SKINS:
             col = skin_index % 2
             row = skin_index // 2
             
-            x = SCREEN_WIDTH // 4 + col * SCREEN_WIDTH // 2
+            x = current_screen_width // 4 + col * current_screen_width // 2
             y = 200 + row * 120
             
             rect = pygame.Rect(x - 75, y - 50, 150, 100)
@@ -630,52 +618,49 @@ class BuyourlifeSimulator:
             
             skin_index += 1
         
-        # Bouton retour
-        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 500, 200, 50)
+        back_rect = pygame.Rect(current_screen_width // 2 - 100, 500, 200, 50)
         if back_rect.collidepoint(pos):
             self.state = "menu"
     
     def handle_game_over_click(self, pos):
-        """Gère les clics dans l'écran game over"""
-        # Rejouer
-        replay_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 400, 300, 60)
+        current_screen_width = self.screen.get_width()
+        
+        replay_rect = pygame.Rect(current_screen_width // 2 - 150, 400, 300, 60)
         if replay_rect.collidepoint(pos):
             if self.current_level > 5:
                 self.current_level = 1
             self.start_game("run")
         
-        # Menu
-        menu_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 480, 300, 60)
+        menu_rect = pygame.Rect(current_screen_width // 2 - 150, 480, 300, 60)
         if menu_rect.collidepoint(pos):
             self.state = "menu"
     
     def start_game(self, mode="normal"):
-        """Démarre une nouvelle partie"""
         self.state = "playing"
         self.money_collected = 0
         self.time_left = 60
-        self.countdown = 3
+        self.countdown = 5
+        self.countdown_start_time = time.time()
         self.is_paused = False
         self.game_mode = mode
         
-        # Difficulté basée sur le mode
         if mode == "easy":
             self.money_spawn_delay = 300
             self.speed_multiplier = 0.5
-            self.gravity_multiplier = 0.2  # Gravité réduite (0.5 * 0.2 = 0.1)
-            self.size_multiplier = 1.5     # Taille augmentée
+            self.gravity_multiplier = 0.2
+            self.size_multiplier = 1.5
             self.bag_speed_multiplier = 1.2
         elif mode == "normal":
             self.money_spawn_delay = 500
             self.speed_multiplier = 1
-            self.gravity_multiplier = 1.0   # Gravité normale (0.5 * 1.0 = 0.5)
-            self.size_multiplier = 1.0      # Taille normale
+            self.gravity_multiplier = 1.0
+            self.size_multiplier = 1.0
             self.bag_speed_multiplier = 1.0
         elif mode == "hard":
             self.money_spawn_delay = 700
             self.speed_multiplier = 1.0
-            self.gravity_multiplier = 1.4   # Gravité augmentée (0.5 * 1.4 = 0.7)
-            self.size_multiplier = 0.8      # Taille réduite
+            self.gravity_multiplier = 1.4
+            self.size_multiplier = 0.8
             self.bag_speed_multiplier = 1.0
         else:  
             self.money_spawn_delay = 500
@@ -684,77 +669,57 @@ class BuyourlifeSimulator:
             self.size_multiplier = 1.0
             self.bag_speed_multiplier = 1.0
         
-        # Réinitialise les sprites
         self.all_sprites.empty()
         self.money_sprites.empty()
         
-        # Crée le sac du joueur
         self.bag = Bag(self.selected_skin, self.bag_speed_multiplier)
         self.all_sprites.add(self.bag)
         
-        # Configure l'argent pour le niveau
         self.setup_money_for_level()
         
-        # Spawn initial de pièces
         self.spawn_multiple_money(5)
         
-        # Initialise le temps de départ
         self.level_start_time = time.time()
     
     def check_collisions(self):
-        """Vérifie les collisions entre le sac et l'argent"""
         hits = pygame.sprite.spritecollide(self.bag, self.money_sprites, True)
         for hit in hits:
             self.money_collected += hit.value
     
     def update_timer(self, dt):
-        """Met à jour les timers du jeu"""
         if self.countdown > 0:
-            self.countdown -= dt
+            current_time = time.time()
+            elapsed = current_time - self.countdown_start_time
+            self.countdown = 5 - elapsed
+            
             if self.countdown <= 0:
                 self.countdown = 0
         elif not self.is_paused:
             self.time_left -= dt
-            
-            # Countdown effect at the end
-            if int(self.time_left) <= 5 and int(self.time_left) >= 1:
-                # Highlight the timer on whole seconds
-                if int(self.time_left) != int(self.time_left + dt):
-                    countdown_text = self.title_font.render(str(int(self.time_left)), True, RED)
-                    countdown_rect = countdown_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-                    self.screen.blit(countdown_text, countdown_rect)
-                    pygame.display.flip()
-                    pygame.time.delay(200)  # Pause briefly to emphasize the countdown
             
             if self.time_left <= 0:
                 self.time_left = 0
                 self.check_level_complete()
     
     def check_level_complete(self):
-        """Vérifie si le niveau est terminé"""
         if self.money_collected >= LEVEL_GOALS[self.current_level]:
-            # Niveau réussi
             self.current_level += 1
             
             if self.current_level > 5:
-                # Jeu terminé
                 self.state = "game_over"
             else:
-                # Niveau suivant
                 self.money_collected = 0
                 self.time_left = 60
-                self.countdown = 3
+                self.countdown = 5
+                self.countdown_start_time = time.time()
                 self.setup_money_for_level()
-                
-                # Initialise le temps de départ
+                self.spawn_multiple_money(5)
                 self.level_start_time = time.time()
         else:
-            # Niveau échoué
             self.current_level = 1
             self.state = "game_over"
     
     def handle_events(self):
-        """Gère les événements pygame"""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -777,6 +742,8 @@ class BuyourlifeSimulator:
                             self.state = "skins"
                         elif item == "Fond":
                             self.state = "background"
+                        elif item == "Plein écran":
+                            self.toggle_fullscreen()
                         elif item == "Quitter":
                             self.running = False
                 
@@ -787,9 +754,11 @@ class BuyourlifeSimulator:
                         self.state = "menu"
                     elif self.state == "background":
                         self.state = "menu"
+                elif event.key == pygame.K_F11:
+                    self.toggle_fullscreen()
             
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Clic gauche
+                if event.button == 1:
                     if self.state == "menu":
                         self.handle_menu_click(event.pos)
                     elif self.state == "skins":
@@ -800,34 +769,30 @@ class BuyourlifeSimulator:
                         self.handle_background_click(event.pos)
     
     def update(self):
-        """Met à jour l'état du jeu"""
-        dt = self.clock.tick(FPS) / 1000.0  # Delta time en secondes
+        dt = self.clock.tick(FPS) / 1000.0
         
         if self.state == "playing" and not self.is_paused and self.countdown <= 0:
-            # Mise à jour des sprites
             keys = pygame.key.get_pressed()
             self.bag.update(keys)
             self.money_sprites.update()
             
-            # Vérification des collisions
             self.check_collisions()
             
-            # Spawn de l'argent
+            if self.money_collected >= LEVEL_GOALS[self.current_level]:
+                self.check_level_complete()
+                return
+            
             self.spawn_money()
             
-            # Mise à jour du timer
             self.update_timer(dt)
         elif self.state == "playing" and not self.is_paused:
-            # Countdown avant de commencer le niveau
             self.update_timer(dt)
     
     def run(self):
-        """Boucle principale du jeu"""
         while self.running:
             self.handle_events()
             self.update()
             
-            # Affichage selon l'état
             if self.state == "menu":
                 self.draw_menu()
             elif self.state == "skins":
